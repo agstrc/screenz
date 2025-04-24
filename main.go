@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	signaling "screenz/signaling"
+	"screenz/static"
 )
 
 func main() {
@@ -57,10 +58,14 @@ func main() {
 	r.Get("/stream", server.HandleStreamerWS)
 	r.Get("/watch/{streamerCode}", server.HandleViewerWS)
 
-	r.Get("/", serveIndex)
-	r.Get("/thumbnail.png", serveThumbnail)
+	r.Get("/", static.Serve(static.IndexHTML, "text/html; charset=utf-8"))
+	r.Get("/style.css", static.Serve(static.StyleCSS, "text/css; charset=utf-8"))
+	r.Get("/main.js", static.Serve(static.MainJS, "application/javascript; charset=utf-8"))
+	r.Get("/thumbnail.png", static.Serve(static.ThumbnailPNG, "image/png"))
 
-	r.NotFound(serveNotFound)
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusPermanentRedirect)
+	})
 
 	listener, err := net.Listen("tcp", ":"+*port)
 	if err != nil {
