@@ -196,9 +196,11 @@ video {
   border-radius: 6px;
   margin: 20px auto;
   max-width: 100%;
-  border: 1px solid var(--border-color);
   aspect-ratio: 16 / 9;
   height: auto !important;
+}
+.plyr:not(:fullscreen) {
+  border: 1px solid var(--border-color);
 }
 .plyr video {
   object-fit: contain;
