@@ -51,8 +51,8 @@
       <div class="tab-content-area">
         <div id="watchTabContent" class="tab-content active">
           <div class="tab-description">
-            Enter the 5-character code provided by the streamer and click
-            'Connect' to start watching.
+            The code is shown in the stream! Look for it in the top-right
+            corner. Enter the code below and click 'Connect' to start watching.
           </div>
           <div id="viewerInfoContent">
             <label for="codeInput">Streamer Code:</label>
@@ -71,8 +71,8 @@
 
         <div id="streamTabContent" class="tab-content">
           <div class="tab-description">
-            Click 'Start Streaming'. Allow screen sharing permission. Share the
-            generated code with your viewers.
+            Click 'Start Streaming'. Allow screen sharing permission. The code
+            will be displayed on your screen automatically for viewers to see.
           </div>
           <div id="streamerInfoContent">
             <button id="initiateStreamButton" class="primary-button">
@@ -80,6 +80,9 @@
             </button>
             <p id="streamerCodeDisplay">
               Your Code: <strong id="streamerCode">Waiting...</strong>
+            </p>
+            <p style="color: #67d980; font-size: 0.95em; margin-top: -10px;">
+              ✓ Code is automatically displayed on your shared screen
             </p>
             <p id="viewerCountDisplay">
               Viewers Connected: <strong id="viewerCount">0</strong>
