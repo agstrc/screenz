@@ -462,7 +462,8 @@ function createCodeOverlay(originalStream, code) {
   const sourceVideo = document.createElement('video');
   sourceVideo.srcObject = originalStream;
   sourceVideo.muted = true;
-  sourceVideo.play();
+  sourceVideo.autoplay = true;
+  sourceVideo.playsInline = true;
 
   // Draw function that composites video + code overlay
   function drawFrame() {
@@ -506,9 +507,23 @@ function createCodeOverlay(originalStream, code) {
     overlayAnimationId = requestAnimationFrame(drawFrame);
   }
 
-  // Start drawing frames
-  sourceVideo.onloadedmetadata = () => {
+  // Ensure video plays and start drawing frames
+  sourceVideo.play().then(() => {
+    console.log("Source video playing, starting frame drawing");
     drawFrame();
+  }).catch(err => {
+    console.error("Failed to play source video for overlay:", err);
+    // Start drawing anyway as fallback
+    drawFrame();
+  });
+
+  // Also handle loadedmetadata as backup
+  sourceVideo.onloadedmetadata = () => {
+    console.log("Source video metadata loaded");
+    // Only start drawing if not already started
+    if (!overlayAnimationId) {
+      drawFrame();
+    }
   };
 
   // Create new stream from canvas
