@@ -47,6 +47,13 @@ let remotePlayer = null;
 let closingConnections = false;
 // Flag for display media support
 let isDisplayMediaSupported = false;
+// Canvas and context for code overlay
+let overlayCanvas = null;
+let overlayContext = null;
+// Stream with code overlay
+let overlayStream = null;
+// Animation frame ID for overlay rendering
+let overlayAnimationId = null;
 
 // --- Constants for Audio Quality ---
 const TARGET_AUDIO_BITRATE = 128000; // Target bitrate in bps (e.g., 128kbps) - adjust as needed
@@ -424,6 +431,118 @@ async function startStreamerInitialization() {
 }
 // Attach listener to the streamer start button
 initiateStreamButton.addEventListener("click", startStreamerInitialization);
+
+/**
+ * Creates a canvas overlay that displays the streamer code on the video stream.
+ * Composites the original video with a code display overlay in real-time.
+ * @param {MediaStream} originalStream - The original screen capture stream
+ * @param {string} code - The streamer code to display
+ * @returns {MediaStream} The composite stream with code overlay
+ */
+function createCodeOverlay(originalStream, code) {
+  console.log("Creating code overlay for stream with code:", code);
+
+  const videoTrack = originalStream.getVideoTracks()[0];
+  if (!videoTrack) {
+    console.error("No video track found in stream");
+    return originalStream;
+  }
+
+  const settings = videoTrack.getSettings();
+  const width = settings.width || 1920;
+  const height = settings.height || 1080;
+
+  // Create canvas for compositing
+  overlayCanvas = document.createElement('canvas');
+  overlayCanvas.width = width;
+  overlayCanvas.height = height;
+  overlayContext = overlayCanvas.getContext('2d');
+
+  // Create video element to render the original stream
+  const sourceVideo = document.createElement('video');
+  sourceVideo.srcObject = originalStream;
+  sourceVideo.muted = true;
+  sourceVideo.play();
+
+  // Draw function that composites video + code overlay
+  function drawFrame() {
+    if (!overlayContext || !overlayCanvas) return;
+
+    // Draw the original video frame
+    overlayContext.drawImage(sourceVideo, 0, 0, width, height);
+
+    // Draw semi-transparent background for code display
+    const padding = 30;
+    const boxWidth = 400;
+    const boxHeight = 120;
+    const x = width - boxWidth - padding;
+    const y = padding;
+
+    // Background with shadow
+    overlayContext.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    overlayContext.shadowBlur = 20;
+    overlayContext.fillStyle = 'rgba(30, 30, 30, 0.9)';
+    overlayContext.fillRect(x, y, boxWidth, boxHeight);
+    overlayContext.shadowBlur = 0;
+
+    // Border
+    overlayContext.strokeStyle = '#7a73e2';
+    overlayContext.lineWidth = 3;
+    overlayContext.strokeRect(x, y, boxWidth, boxHeight);
+
+    // Draw "Stream Code:" label
+    overlayContext.fillStyle = '#9e9e9e';
+    overlayContext.font = 'bold 24px system-ui, sans-serif';
+    overlayContext.textAlign = 'center';
+    overlayContext.fillText('Stream Code:', x + boxWidth / 2, y + 35);
+
+    // Draw the code
+    overlayContext.fillStyle = '#7a73e2';
+    overlayContext.font = 'bold 48px monospace';
+    overlayContext.textAlign = 'center';
+    overlayContext.fillText(code, x + boxWidth / 2, y + 85);
+
+    // Continue animation
+    overlayAnimationId = requestAnimationFrame(drawFrame);
+  }
+
+  // Start drawing frames
+  sourceVideo.onloadedmetadata = () => {
+    drawFrame();
+  };
+
+  // Create new stream from canvas
+  overlayStream = overlayCanvas.captureStream(30); // 30 fps
+
+  // Copy audio tracks from original stream to overlay stream
+  originalStream.getAudioTracks().forEach(track => {
+    overlayStream.addTrack(track);
+  });
+
+  console.log("Code overlay stream created successfully");
+  return overlayStream;
+}
+
+/**
+ * Stops the code overlay and cleans up resources
+ */
+function stopCodeOverlay() {
+  if (overlayAnimationId) {
+    cancelAnimationFrame(overlayAnimationId);
+    overlayAnimationId = null;
+  }
+  if (overlayStream) {
+    overlayStream.getTracks().forEach(track => {
+      if (track.kind === 'video') {
+        track.stop();
+      }
+    });
+    overlayStream = null;
+  }
+  overlayCanvas = null;
+  overlayContext = null;
+  console.log("Code overlay stopped and cleaned up");
+}
 
 /**
  * Requests screen capture using `navigator.mediaDevices.getDisplayMedia`.
@@ -834,8 +953,16 @@ async function handleWebSocketMessage(event) {
       if (message.code) {
         streamerCode = message.code;
         STREAMER_CODE_DISPLAY.textContent = streamerCode; // Display the code in the UI
-        setStatus("Streaming - Share this code with viewers.", true);
+        setStatus("Streaming - Code displayed on screen.", true);
         console.log(`Streamer received code: ${streamerCode}`);
+
+        // Create code overlay on the video stream
+        if (localStream) {
+          const originalStream = localStream;
+          localStream = createCodeOverlay(originalStream, streamerCode);
+          console.log("Applied code overlay to stream");
+        }
+
         return; // Code message handled
       }
 
@@ -1461,6 +1588,9 @@ function closeConnections(closeWsExplicitly = true) {
   signalingTimeout = null;
 
   // 1. Stop Media Streams FIRST to release camera/screen resources
+  // Stop code overlay if active
+  stopCodeOverlay();
+
   if (localStream) {
     console.log("Stopping local stream tracks in closeConnections...");
     localStream.getTracks().forEach((track) => {
